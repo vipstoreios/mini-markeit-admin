@@ -150,22 +150,16 @@ function renderDashboard() {
 }
 
 function updateStats() {
-  const totalProducts = document.getElementById("totalProducts");
-  const totalOrders = document.getElementById("totalOrders");
-  const todaySales = document.getElementById("todaySales");
-  const activeDiscounts = document.getElementById("activeDiscounts");
-  const totalCategories = document.getElementById("totalCategories");
-
-  if (totalProducts) totalProducts.textContent = products.length;
-  if (totalOrders) totalOrders.textContent = orders.length;
+  document.getElementById("totalProducts").textContent = products.length;
+  document.getElementById("totalOrders").textContent = orders.length;
 
   const salesTotal = orders.reduce((sum, order) => sum + Number(order.total || 0), 0);
-  if (todaySales) todaySales.textContent = formatIqd(salesTotal);
+  document.getElementById("todaySales").textContent = formatIqd(salesTotal);
 
   const discountCount = products.filter((item) => item.discount).length;
-  if (activeDiscounts) activeDiscounts.textContent = discountCount;
+  document.getElementById("activeDiscounts").textContent = discountCount;
 
-  if (totalCategories) totalCategories.textContent = "10";
+  document.getElementById("totalCategories").textContent = "10";
 }
 
 function renderProducts() {
