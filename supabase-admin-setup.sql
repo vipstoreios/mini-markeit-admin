@@ -24,7 +24,7 @@ $$;
 insert into public.admin_users (id, role)
 select id, 'super_admin'
 from auth.users
-where email = 'admin@mini-markeit.com'
+where email = 'goranamar77@gmail.com'
 on conflict (id) do update set role = excluded.role;
 
 -- Admin can manage everything needed by the dashboard.
