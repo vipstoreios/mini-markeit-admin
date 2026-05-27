@@ -5,18 +5,17 @@ let sb;
 let products = [];
 let categories = [];
 let orders = [];
+let supportMessages = [];
+let settingsRow = null;
 let currentProductId = null;
-let currentLanguage = "ku_sorani";
+let currentCategoryId = null;
 
 document.addEventListener("DOMContentLoaded", async () => {
   sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-  if (window.lucide) lucide.createIcons();
-
   setupNavigation();
-  setupLanguageTabs();
 
   const { data } = await sb.auth.getSession();
+
   if (data.session) {
     showApp();
     await loadAllData();
@@ -26,30 +25,31 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 function showLogin() {
-  document.getElementById("loginPage")?.classList.remove("hidden");
-  document.getElementById("app")?.classList.add("hidden");
+  document.getElementById("loginPage").classList.remove("hidden");
+  document.getElementById("app").classList.add("hidden");
 }
 
 function showApp() {
-  document.getElementById("loginPage")?.classList.add("hidden");
-  document.getElementById("app")?.classList.remove("hidden");
-  if (window.lucide) lucide.createIcons();
+  document.getElementById("loginPage").classList.add("hidden");
+  document.getElementById("app").classList.remove("hidden");
 }
 
 async function login() {
-  const email = document.getElementById("usernameInput").value.trim();
-  const password = document.getElementById("passwordInput").value.trim();
-  const error = document.getElementById("loginError");
+  const email = getValue("usernameInput");
+  const password = getValue("passwordInput");
+  const errorBox = document.getElementById("loginError");
 
-  error.textContent = "";
+  errorBox.textContent = "";
 
-  const { error: loginError } = await sb.auth.signInWithPassword({
-    email,
-    password,
-  });
+  if (!email || !password) {
+    errorBox.textContent = "ئیمەیڵ و پاسۆرد بنووسە.";
+    return;
+  }
 
-  if (loginError) {
-    error.textContent = "ئیمەیڵ یان پاسۆرد هەڵەیە.";
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+
+  if (error) {
+    errorBox.textContent = "ئیمەیڵ یان پاسۆرد هەڵەیە.";
     return;
   }
 
@@ -62,17 +62,43 @@ async function logout() {
   showLogin();
 }
 
+function setupNavigation() {
+  document.querySelectorAll(".nav").forEach((btn) => {
+    btn.addEventListener("click", () => showPage(btn.dataset.page));
+  });
+}
+
+function showPage(page) {
+  document.querySelectorAll(".nav").forEach((b) => b.classList.remove("active"));
+  document.querySelector(`.nav[data-page="${page}"]`)?.classList.add("active");
+
+  document.querySelectorAll(".page").forEach((p) => p.classList.add("hidden"));
+  document.getElementById(`page-${page}`)?.classList.remove("hidden");
+
+  const titles = {
+    dashboard: "سەرەکی",
+    products: "کەلوپەل",
+    categories: "پۆلێن / بەشەکان",
+    orders: "داواکاری",
+    support: "چات دگەل پشتەڤانیێ",
+    settings: "ڕێکخستن",
+  };
+
+  setText("pageTitle", titles[page] || "Mini markeit");
+}
+
 async function loadAllData() {
   await Promise.all([
     loadCategories(),
     loadProducts(),
     loadOrders(),
+    loadSupportMessages(),
     loadSettings(),
-    loadTexts(),
   ]);
 
   updateStats();
-  if (window.lucide) lucide.createIcons();
+  renderDashboard();
+  toast("هاتە نویکرنەوە");
 }
 
 async function loadCategories() {
@@ -82,7 +108,7 @@ async function loadCategories() {
     .order("sort_order", { ascending: true });
 
   if (error) {
-    alert("هەڵە لە هێنانی هاوپۆلەکان: " + error.message);
+    alert("هەڵە لە هێنانی پۆلان: " + error.message);
     return;
   }
 
@@ -94,11 +120,11 @@ async function loadCategories() {
 async function loadProducts() {
   const { data, error } = await sb
     .from("products")
-    .select("*, categories(name_ku_sorani)")
-    .order("created_at", { ascending: false });
+    .select("*, categories(name_ku_sorani, name_ku_badini)")
+    .order("sort_order", { ascending: true });
 
   if (error) {
-    alert("هەڵە لە هێنانی کاڵاکان: " + error.message);
+    alert("هەڵە لە هێنانی کەلوپەلان: " + error.message);
     return;
   }
 
@@ -111,10 +137,10 @@ async function loadOrders() {
     .from("orders")
     .select("*")
     .order("created_at", { ascending: false })
-    .limit(50);
+    .limit(100);
 
   if (error) {
-    alert("هەڵە لە هێنانی فەرمانەکان: " + error.message);
+    alert("هەڵە لە هێنانی داواکاریان: " + error.message);
     return;
   }
 
@@ -122,237 +148,335 @@ async function loadOrders() {
   renderOrders();
 }
 
+async function loadSupportMessages() {
+  const { data, error } = await sb
+    .from("support_messages")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  if (error) {
+    alert("هەڵە لە هێنانی چاتێ: " + error.message);
+    return;
+  }
+
+  supportMessages = data || [];
+  renderSupportMessages();
+}
+
 async function loadSettings() {
-  const { data } = await sb
+  const { data, error } = await sb
     .from("app_settings")
     .select("*")
-    .eq("id", 1)
+    .order("updated_at", { ascending: false })
+    .limit(1)
     .maybeSingle();
+
+  if (error) return;
+
+  settingsRow = data;
 
   if (!data) return;
 
-  setValue("settingAppName", data.app_name);
-  setValue("settingStoreName", data.store_name);
-  setValue("settingAddress", data.address);
-  setValue("settingWhatsapp", data.whatsapp_number);
-  setValue("settingDeliveryFee", data.delivery_fee);
-  setValue("settingMinimumOrder", data.minimum_order);
-  setValue("settingBannerTitle", data.banner_title);
-  setValue("settingBannerSubtitle", data.banner_subtitle);
+  setValue("settingAppName", data.app_name || "Mini markeit");
+  setValue("settingStoreName", data.store_name || "مینی مارکێت");
+  setValue("settingAddress", data.address || "Duhok, Barzan Road, Mini Market");
+  setValue("settingPhone", data.phone || "");
+  setValue("settingWhatsapp", data.whatsapp || data.whatsapp_number || "");
+  setValue("settingDeliveryFee", data.delivery_fee || 1500);
+  setValue("settingDeliveryTime", data.delivery_time || "60 - 90 خولەک");
+  setChecked("settingIsOpen", data.is_open !== false);
 }
 
-async function loadTexts() {
-  const { data } = await sb
-    .from("app_texts")
-    .select("*")
-    .order("text_key", { ascending: true });
+function renderDashboard() {
+  const latestOrders = document.getElementById("latestOrders");
+  const latestSupport = document.getElementById("latestSupport");
 
-  renderTexts(data || []);
+  if (latestOrders) {
+    latestOrders.innerHTML =
+      orders
+        .slice(0, 5)
+        .map(
+          (o) => `
+        <div class="mini-row">
+          <div>
+            <b>${escapeHtml(o.customer_name || "کڕیار")}</b>
+            <small>${escapeHtml(o.customer_phone || "")}</small>
+          </div>
+          <span>${formatMoney(o.total || o.total_amount || 0)}</span>
+        </div>
+      `
+        )
+        .join("") || `<div class="empty">هێشتا داواکاری نییە</div>`;
+  }
+
+  if (latestSupport) {
+    latestSupport.innerHTML =
+      supportMessages
+        .slice(0, 5)
+        .map(
+          (m) => `
+        <div class="mini-row">
+          <div>
+            <b>${escapeHtml(m.customer_name || "کڕیار")}</b>
+            <small>${escapeHtml(m.message || "")}</small>
+          </div>
+          <span class="${m.admin_reply ? "badge done" : "badge new"}">
+            ${m.admin_reply ? "بەرسڤ درا" : "نوێ"}
+          </span>
+        </div>
+      `
+        )
+        .join("") || `<div class="empty">هێشتا چات نییە</div>`;
+  }
 }
 
 function renderProducts() {
   const table = document.getElementById("productsTable");
   if (!table) return;
 
-  if (products.length === 0) {
-    table.innerHTML = `
-      <tr>
-        <td colspan="8">
-          <div class="empty-state">
-            <i data-lucide="package-open"></i>
-            <strong>هێشتا هیچ کاڵایەک زیاد نەکراوە</strong>
-            <span>کاڵاکان لە داشبۆرد زیاد دەکرێن و لە ئەپ دەردەکەون.</span>
-          </div>
-        </td>
-      </tr>
-    `;
-    if (window.lucide) lucide.createIcons();
+  if (!products.length) {
+    table.innerHTML = `<tr><td colspan="6" class="empty">هێشتا کەلوپەل نەهاتیە زێدەکرن</td></tr>`;
     return;
   }
 
-  table.innerHTML = products.map((p, i) => {
-    const categoryName = p.categories?.name_ku_sorani || "-";
-    const img = p.image_url
-      ? `<img class="product-img" src="${escapeHtml(p.image_url)}" />`
-      : `<div class="product-img placeholder"><i data-lucide="image"></i></div>`;
+  table.innerHTML = products
+    .map((p) => {
+      const categoryName =
+        p.categories?.name_ku_badini || p.categories?.name_ku_sorani || "-";
 
-    return `
+      const image = p.image_url
+        ? `<img class="thumb" src="${escapeAttr(p.image_url)}" alt="">`
+        : `<div class="thumb ph">🛍️</div>`;
+
+      return `
       <tr>
-        <td>${i + 1}</td>
-        <td>${img}</td>
+        <td>${image}</td>
         <td>
-          <strong>${escapeHtml(p.name_ku_sorani)}</strong>
-          <br><small>${escapeHtml(p.unit || "")}</small>
+          <b>${escapeHtml(p.name_ku_badini || p.name_ku_sorani || p.name_en || "-")}</b>
+          <small>${escapeHtml(p.unit || "")}</small>
         </td>
         <td>${escapeHtml(categoryName)}</td>
-        <td class="price">${formatIqd(p.price || 0)}</td>
+        <td>${formatMoney(p.price || 0)}</td>
         <td>
-          <div class="toggle ${p.is_available ? "on" : ""}" onclick="toggleProduct('${p.id}', 'is_available')"></div>
+          <span class="badge ${p.is_available !== false ? "done" : "off"}">
+            ${p.is_available !== false ? "چالاک" : "ڤەمراندی"}
+          </span>
+          ${p.is_discount ? `<span class="badge sale">داشکاندن</span>` : ""}
         </td>
         <td>
-          <div class="toggle ${p.is_discounted ? "on" : ""}" onclick="toggleProduct('${p.id}', 'is_discounted')"></div>
-        </td>
-        <td>
-          <div class="action-buttons">
-            <button onclick="editProduct('${p.id}')"><i data-lucide="pencil"></i></button>
-            <button class="delete" onclick="deleteProduct('${p.id}')"><i data-lucide="trash-2"></i></button>
-          </div>
+          <button class="btn mini" onclick="editProduct('${p.id}')">گۆڕین</button>
+          <button class="btn danger mini" onclick="deleteProduct('${p.id}')">سڕین</button>
         </td>
       </tr>
     `;
-  }).join("");
-
-  if (window.lucide) lucide.createIcons();
+    })
+    .join("");
 }
 
 function renderCategories() {
   const box = document.getElementById("categoriesList");
   if (!box) return;
 
-  if (categories.length === 0) {
-    box.innerHTML = `<div class="empty-state"><strong>هاوپۆل نییە</strong></div>`;
+  if (!categories.length) {
+    box.innerHTML = `<div class="empty">هێشتا پۆل نەهاتیە زێدەکرن</div>`;
     return;
   }
 
-  box.innerHTML = categories.map((c) => `
-    <div class="list-row">
-      <div>
-        <strong>${escapeHtml(c.name_ku_sorani)}</strong>
-        <span>${escapeHtml(c.name_en || "")}</span>
-      </div>
-      <div class="action-buttons">
-        <button onclick="editCategory('${c.id}')"><i data-lucide="pencil"></i></button>
-        <button class="delete" onclick="deleteCategory('${c.id}')"><i data-lucide="trash-2"></i></button>
-      </div>
-    </div>
-  `).join("");
+  box.innerHTML = categories
+    .map((c) => {
+      const imgUrl = c.image_url || c.icon || "";
+      const visual = isImageUrl(imgUrl)
+        ? `<img src="${escapeAttr(imgUrl)}" alt="">`
+        : `<span>${escapeHtml(imgUrl || "🛍️")}</span>`;
 
-  if (window.lucide) lucide.createIcons();
+      return `
+      <div class="cat-card">
+        <div class="cat-img">${visual}</div>
+        <div class="cat-body">
+          <h3>${escapeHtml(c.name_ku_badini || c.name_ku_sorani || "-")}</h3>
+          <p>${escapeHtml(c.name_en || "")}</p>
+          <div>
+            <span class="badge ${c.is_active !== false ? "done" : "off"}">
+              ${c.is_active !== false ? "چالاک" : "ڤەمراندی"}
+            </span>
+            <span class="badge">#${c.sort_order || 0}</span>
+          </div>
+        </div>
+        <div class="cat-actions">
+          <button class="btn mini" onclick="editCategory('${c.id}')">گۆڕین</button>
+          <button class="btn danger mini" onclick="deleteCategory('${c.id}')">سڕین</button>
+        </div>
+      </div>
+    `;
+    })
+    .join("");
 }
 
 function renderOrders() {
   const table = document.getElementById("ordersTable");
   if (!table) return;
 
-  if (orders.length === 0) {
-    table.innerHTML = `
-      <tr>
-        <td colspan="7">
-          <div class="empty-state">
-            <i data-lucide="receipt-text"></i>
-            <strong>هێشتا هیچ فەرمانێک نییە</strong>
-            <span>کاتێک کڕیار داواکاری بکات، لێرە دەردەکەوێت.</span>
-          </div>
-        </td>
-      </tr>
-    `;
-    if (window.lucide) lucide.createIcons();
+  if (!orders.length) {
+    table.innerHTML = `<tr><td colspan="6" class="empty">هێشتا داواکاری نییە</td></tr>`;
     return;
   }
 
-  table.innerHTML = orders.map((o, i) => `
+  table.innerHTML = orders
+    .map(
+      (o, i) => `
     <tr>
       <td>${i + 1}</td>
-      <td>${o.id.slice(0, 8)}</td>
-      <td>${escapeHtml(o.customer_name)}<br><small>${escapeHtml(o.customer_phone)}</small></td>
-      <td>${formatDate(o.created_at)}</td>
-      <td class="price">${formatIqd(o.total_amount || 0)}</td>
       <td>
-        <select onchange="updateOrderStatus('${o.id}', this.value)">
-          <option value="new" ${o.status === "new" ? "selected" : ""}>نوێ</option>
-          <option value="preparing" ${o.status === "preparing" ? "selected" : ""}>ئامادەکردن</option>
-          <option value="delivered" ${o.status === "delivered" ? "selected" : ""}>گەیاندرا</option>
-          <option value="cancelled" ${o.status === "cancelled" ? "selected" : ""}>هەڵوەشێندرا</option>
-        </select>
+        <b>${escapeHtml(o.customer_name || "کڕیار")}</b>
+        <small>${formatDate(o.created_at)}</small>
       </td>
-      <td>
-        <div class="action-buttons">
-          <button onclick="viewOrder('${o.id}')"><i data-lucide="eye"></i></button>
-          <button class="delete" onclick="deleteOrder('${o.id}')"><i data-lucide="trash-2"></i></button>
-        </div>
+      <td>${escapeHtml(o.customer_phone || "")}</td>
+      <td>${formatMoney(o.total || o.total_amount || 0)}</td>
+      <td><span class="badge">${escapeHtml(orderStatusText(o.status))}</span></td>
+      <td class="actions">
+        <button class="btn mini" onclick="viewOrder('${o.id}')">وردەکاری</button>
+        <select onchange="updateOrderStatus('${o.id}', this.value)">
+          <option value="">دۆخ</option>
+          <option value="new">نوێ</option>
+          <option value="preparing">ئامادەکرن</option>
+          <option value="delivered">گەهاندی</option>
+          <option value="cancelled">هەلوەشاندی</option>
+        </select>
+        <button class="btn danger mini" onclick="deleteOrder('${o.id}')">سڕین</button>
       </td>
     </tr>
-  `).join("");
-
-  if (window.lucide) lucide.createIcons();
+  `
+    )
+    .join("");
 }
 
-function renderTexts(texts) {
-  const editor = document.getElementById("localizationEditor");
-  if (!editor) return;
+function renderSupportMessages() {
+  const box = document.getElementById("supportList");
+  if (!box) return;
 
-  const defaultTexts = texts.length ? texts : [
-    { text_key: "app_name", ku_sorani: "Mini markeit" },
-    { text_key: "app_slogan", ku_sorani: "دهۆك، جادا بارزان، مینی مارکێت" },
-    { text_key: "home_welcome", ku_sorani: "بەخێربێیت بۆ Mini markeit" },
-    { text_key: "home_subtitle", ku_sorani: "کاڵاکانت هەڵبژێرە و داواکارییەکەت بنێرە" },
-    { text_key: "search_placeholder", ku_sorani: "گەڕان بۆ کاڵا..." },
-    { text_key: "cart_title", ku_sorani: "سەبەتەکەت" },
-  ];
+  if (!supportMessages.length) {
+    box.innerHTML = `<div class="empty">هێشتا چات نییە</div>`;
+    return;
+  }
 
-  editor.innerHTML = defaultTexts.map((t) => `
-    <div class="text-row">
-      <span>${escapeHtml(t.text_key)}</span>
-      <input data-key="${escapeHtml(t.text_key)}" value="${escapeHtml(t[currentLanguage] || "")}" />
-      <button onclick="saveText('${escapeHtml(t.text_key)}')"><i data-lucide="save"></i></button>
+  box.innerHTML = supportMessages
+    .map(
+      (m) => `
+    <div class="support-card">
+      <div class="support-head">
+        <div>
+          <h3>${escapeHtml(m.customer_name || "کڕیار")}</h3>
+          <p>${escapeHtml(m.customer_phone || "")} • ${formatDate(m.created_at)}</p>
+        </div>
+        <span class="${m.admin_reply ? "badge done" : "badge new"}">
+          ${m.admin_reply ? "بەرسڤ درا" : "نوێ"}
+        </span>
+      </div>
+
+      <div class="chat-box customer">
+        <b>کڕیار:</b>
+        <p>${escapeHtml(m.message || "")}</p>
+      </div>
+
+      ${
+        m.admin_reply
+          ? `
+        <div class="chat-box admin">
+          <b>ئەدمین:</b>
+          <p>${escapeHtml(m.admin_reply)}</p>
+        </div>
+      `
+          : ""
+      }
+
+      <textarea id="reply-${m.id}" placeholder="بەرسڤا خۆ بنویسە...">${escapeHtml(
+        m.admin_reply || ""
+      )}</textarea>
+
+      <div class="support-actions">
+        <button class="btn primary" onclick="replySupport('${m.id}')">شاندنا بەرسڤێ</button>
+        <button class="btn danger" onclick="deleteSupport('${m.id}')">سڕین</button>
+      </div>
     </div>
-  `).join("");
-
-  if (window.lucide) lucide.createIcons();
+  `
+    )
+    .join("");
 }
 
 function fillCategorySelect() {
   const select = document.getElementById("productCategory");
   if (!select) return;
 
-  select.innerHTML = categories.map((c) =>
-    `<option value="${c.id}">${escapeHtml(c.name_ku_sorani)}</option>`
-  ).join("");
+  select.innerHTML =
+    `<option value="">بێ پۆل</option>` +
+    categories
+      .map(
+        (c) =>
+          `<option value="${escapeAttr(c.id)}">${escapeHtml(
+            c.name_ku_badini || c.name_ku_sorani || "-"
+          )}</option>`
+      )
+      .join("");
 }
 
 function openProductModal() {
   currentProductId = null;
-  setValue("productName", "");
+  setText("productModalTitle", "زیادکرنا کەلوپەل");
+
+  setValue("productNameSorani", "");
   setValue("productNameBadini", "");
   setValue("productNameAr", "");
   setValue("productNameEn", "");
+  setValue("productCategory", "");
   setValue("productPrice", "");
+  setValue("productOldPrice", "");
   setValue("productUnit", "");
   setValue("productImage", "");
+  setValue("productSort", products.length + 1);
+
   setChecked("productAvailable", true);
   setChecked("productDiscount", false);
-  document.getElementById("productModal")?.classList.remove("hidden");
+
+  document.getElementById("productModal").classList.remove("hidden");
 }
 
 function closeProductModal() {
-  document.getElementById("productModal")?.classList.add("hidden");
+  document.getElementById("productModal").classList.add("hidden");
 }
 
 function editProduct(id) {
-  const p = products.find(x => x.id === id);
+  const p = products.find((x) => x.id === id);
   if (!p) return;
 
   currentProductId = id;
-  setValue("productName", p.name_ku_sorani);
+  setText("productModalTitle", "گۆڕینا کەلوپەلی");
+
+  setValue("productNameSorani", p.name_ku_sorani);
   setValue("productNameBadini", p.name_ku_badini);
   setValue("productNameAr", p.name_ar);
   setValue("productNameEn", p.name_en);
   setValue("productCategory", p.category_id);
   setValue("productPrice", p.price);
+  setValue("productOldPrice", p.old_price);
   setValue("productUnit", p.unit);
   setValue("productImage", p.image_url);
-  setChecked("productAvailable", p.is_available);
-  setChecked("productDiscount", p.is_discounted);
+  setValue("productSort", p.sort_order);
 
-  document.getElementById("productModal")?.classList.remove("hidden");
+  setChecked("productAvailable", p.is_available !== false);
+  setChecked("productDiscount", !!p.is_discount);
+
+  document.getElementById("productModal").classList.remove("hidden");
 }
 
 async function saveProduct() {
-  const name = getValue("productName");
-  const price = Number(getValue("productPrice"));
+  const name = getValue("productNameSorani");
+  const price = Number(getValue("productPrice") || 0);
 
-  if (!name) return alert("ناوی کاڵا بنووسە.");
-  if (!price && price !== 0) return alert("نرخ بە ژمارە بنووسە.");
+  if (!name) {
+    alert("ناڤێ کەلوپەلی بنویسە.");
+    return;
+  }
 
   const payload = {
     name_ku_sorani: name,
@@ -361,106 +485,166 @@ async function saveProduct() {
     name_en: getValue("productNameEn"),
     category_id: getValue("productCategory") || null,
     price,
+    old_price: getValue("productOldPrice")
+      ? Number(getValue("productOldPrice"))
+      : null,
     unit: getValue("productUnit"),
     image_url: getValue("productImage"),
+    sort_order: Number(getValue("productSort") || 0),
     is_available: getChecked("productAvailable"),
-    is_discounted: getChecked("productDiscount"),
-    updated_at: new Date().toISOString(),
+    is_discount: getChecked("productDiscount"),
   };
 
   let result;
+
   if (currentProductId) {
     result = await sb.from("products").update(payload).eq("id", currentProductId);
   } else {
     result = await sb.from("products").insert(payload);
   }
 
-  if (result.error) return alert("هەڵە: " + result.error.message);
+  if (result.error) {
+    alert("هەڵە: " + result.error.message);
+    return;
+  }
 
   closeProductModal();
   await loadProducts();
   updateStats();
+  toast("کەلوپەل پاشەکەوت بوو");
 }
 
 async function deleteProduct(id) {
-  if (!confirm("دڵنیایت ئەم کاڵایە بسڕیتەوە؟")) return;
+  if (!confirm("دڵنیایی ئەم کەلوپەلە بسڕیتەوە؟")) return;
 
   const { error } = await sb.from("products").delete().eq("id", id);
-  if (error) return alert("هەڵە: " + error.message);
+
+  if (error) {
+    alert("هەڵە: " + error.message);
+    return;
+  }
 
   await loadProducts();
   updateStats();
 }
 
-async function toggleProduct(id, field) {
-  const p = products.find(x => x.id === id);
-  if (!p) return;
+function openCategoryModal() {
+  currentCategoryId = null;
+  setText("categoryModalTitle", "زیادکرنا پۆلێ");
 
-  const { error } = await sb
-    .from("products")
-    .update({ [field]: !p[field], updated_at: new Date().toISOString() })
-    .eq("id", id);
+  setValue("categoryNameSorani", "");
+  setValue("categoryNameBadini", "");
+  setValue("categoryNameAr", "");
+  setValue("categoryNameEn", "");
+  setValue("categoryIcon", "");
+  setValue("categorySort", categories.length + 1);
 
-  if (error) return alert("هەڵە: " + error.message);
+  setChecked("categoryActive", true);
 
-  await loadProducts();
-  updateStats();
+  document.getElementById("categoryModal").classList.remove("hidden");
 }
 
-async function addCategory() {
-  const name = prompt("ناوی هاوپۆلی نوێ بنووسە:");
-  if (!name) return;
-
-  const { error } = await sb.from("categories").insert({
-    name_ku_sorani: name,
-    sort_order: categories.length + 1,
-    is_active: true,
-  });
-
-  if (error) return alert("هەڵە: " + error.message);
-
-  await loadCategories();
+function closeCategoryModal() {
+  document.getElementById("categoryModal").classList.add("hidden");
 }
 
-async function editCategory(id) {
-  const c = categories.find(x => x.id === id);
+function editCategory(id) {
+  const c = categories.find((x) => x.id === id);
   if (!c) return;
 
-  const name = prompt("ناوی نوێی هاوپۆل:", c.name_ku_sorani);
-  if (!name) return;
+  currentCategoryId = id;
+  setText("categoryModalTitle", "گۆڕینا پۆلێ");
 
-  const { error } = await sb
-    .from("categories")
-    .update({ name_ku_sorani: name })
-    .eq("id", id);
+  setValue("categoryNameSorani", c.name_ku_sorani);
+  setValue("categoryNameBadini", c.name_ku_badini);
+  setValue("categoryNameAr", c.name_ar);
+  setValue("categoryNameEn", c.name_en);
+  setValue("categoryIcon", c.image_url || c.icon || "");
+  setValue("categorySort", c.sort_order);
 
-  if (error) return alert("هەڵە: " + error.message);
+  setChecked("categoryActive", c.is_active !== false);
 
+  document.getElementById("categoryModal").classList.remove("hidden");
+}
+
+async function saveCategory() {
+  const name = getValue("categoryNameSorani");
+  const image = getValue("categoryIcon");
+
+  if (!name) {
+    alert("ناڤێ پۆلێ بنویسە.");
+    return;
+  }
+
+  const payload = {
+    name_ku_sorani: name,
+    name_ku_badini: getValue("categoryNameBadini"),
+    name_ar: getValue("categoryNameAr"),
+    name_en: getValue("categoryNameEn"),
+    icon: image,
+    image_url: image,
+    sort_order: Number(getValue("categorySort") || 0),
+    is_active: getChecked("categoryActive"),
+  };
+
+  let result;
+
+  if (currentCategoryId) {
+    result = await sb.from("categories").update(payload).eq("id", currentCategoryId);
+  } else {
+    result = await sb.from("categories").insert(payload);
+  }
+
+  if (result.error) {
+    alert("هەڵە: " + result.error.message);
+    return;
+  }
+
+  closeCategoryModal();
   await loadCategories();
   await loadProducts();
+  updateStats();
+  toast("پۆل پاشەکەوت بوو");
 }
 
 async function deleteCategory(id) {
-  if (!confirm("دڵنیایت ئەم هاوپۆلە بسڕیتەوە؟")) return;
+  if (!confirm("دڵنیایی ئەم پۆلە بسڕیتەوە؟")) return;
 
   const { error } = await sb.from("categories").delete().eq("id", id);
-  if (error) return alert("هەڵە: " + error.message);
+
+  if (error) {
+    alert("هەڵە: " + error.message);
+    return;
+  }
 
   await loadCategories();
   await loadProducts();
+  updateStats();
 }
 
 async function updateOrderStatus(id, status) {
+  if (!status) return;
+
   const { error } = await sb.from("orders").update({ status }).eq("id", id);
-  if (error) return alert("هەڵە: " + error.message);
+
+  if (error) {
+    alert("هەڵە: " + error.message);
+    return;
+  }
+
   await loadOrders();
+  toast("دۆخ هاتە گۆڕین");
 }
 
 async function deleteOrder(id) {
-  if (!confirm("دڵنیایت ئەم فەرمانە بسڕیتەوە؟")) return;
+  if (!confirm("دڵنیایی ئەم داواکارییە بسڕیتەوە؟")) return;
 
   const { error } = await sb.from("orders").delete().eq("id", id);
-  if (error) return alert("هەڵە: " + error.message);
+
+  if (error) {
+    alert("هەڵە: " + error.message);
+    return;
+  }
 
   await loadOrders();
   updateStats();
@@ -472,110 +656,127 @@ async function viewOrder(id) {
     .select("*")
     .eq("order_id", id);
 
-  if (error) return alert("هەڵە: " + error.message);
+  if (error) {
+    alert("هەڵە: " + error.message);
+    return;
+  }
 
   const details = (data || [])
-    .map(x => `${x.product_name} × ${x.quantity} = ${formatIqd(x.total)}`)
+    .map((x) => {
+      return `${x.product_name || "-"} × ${x.quantity || 1} = ${formatMoney(
+        x.total || 0
+      )}`;
+    })
     .join("\n");
 
-  alert(details || "هیچ کاڵایەک نییە.");
+  alert(details || "هیچ کەلوپەلەک نییە.");
 }
 
-async function saveText(key) {
-  const input = document.querySelector(`input[data-key="${key}"]`);
-  if (!input) return;
+async function replySupport(id) {
+  const reply = getValue(`reply-${id}`);
 
-  const payload = {
-    text_key: key,
-    [currentLanguage]: input.value,
-    section: "general",
-    updated_at: new Date().toISOString(),
-  };
+  if (!reply) {
+    alert("بەرسڤێ بنویسە.");
+    return;
+  }
 
   const { error } = await sb
-    .from("app_texts")
-    .upsert(payload, { onConflict: "text_key" });
+    .from("support_messages")
+    .update({
+      admin_reply: reply,
+      status: "replied",
+      replied_at: new Date().toISOString(),
+      admin_read: true,
+    })
+    .eq("id", id);
 
-  if (error) return alert("هەڵە: " + error.message);
+  if (error) {
+    alert("هەڵە: " + error.message);
+    return;
+  }
 
-  alert("دەقەکە پاشەکەوت کرا.");
+  await loadSupportMessages();
+  updateStats();
+  renderDashboard();
+  toast("بەرسڤ هاتە شاندن");
 }
 
-async function addTextKey() {
-  const key = prompt("کلیلیدی نوێ بنووسە، نموونە: checkout_button");
-  if (!key) return;
+async function deleteSupport(id) {
+  if (!confirm("دڵنیایی ئەم چاتە بسڕیتەوە؟")) return;
 
-  const { error } = await sb.from("app_texts").insert({
-    text_key: key,
-    ku_sorani: "",
-    ku_badini: "",
-    ar: "",
-    en: "",
-    section: "general",
-  });
+  const { error } = await sb.from("support_messages").delete().eq("id", id);
 
-  if (error) return alert("هەڵە: " + error.message);
+  if (error) {
+    alert("هەڵە: " + error.message);
+    return;
+  }
 
-  await loadTexts();
+  await loadSupportMessages();
+  updateStats();
 }
 
 async function saveSettings() {
   const payload = {
-    id: 1,
-    app_name: getValue("settingAppName"),
-    store_name: getValue("settingStoreName"),
+    app_name: getValue("settingAppName") || "Mini markeit",
+    store_name: getValue("settingStoreName") || "مینی مارکێت",
     address: getValue("settingAddress"),
-    whatsapp_number: getValue("settingWhatsapp"),
+    phone: getValue("settingPhone"),
+    whatsapp: getValue("settingWhatsapp"),
     delivery_fee: Number(getValue("settingDeliveryFee") || 0),
-    minimum_order: Number(getValue("settingMinimumOrder") || 0),
-    banner_title: getValue("settingBannerTitle"),
-    banner_subtitle: getValue("settingBannerSubtitle"),
+    delivery_time: getValue("settingDeliveryTime"),
+    is_open: getChecked("settingIsOpen"),
     updated_at: new Date().toISOString(),
   };
 
-  const { error } = await sb
-    .from("app_settings")
-    .upsert(payload, { onConflict: "id" });
+  let result;
 
-  if (error) return alert("هەڵە: " + error.message);
+  if (settingsRow?.id) {
+    result = await sb.from("app_settings").update(payload).eq("id", settingsRow.id);
+  } else {
+    result = await sb.from("app_settings").insert(payload).select().single();
+  }
 
-  alert("ڕێکخستنەکان پاشەکەوت کران.");
-}
+  if (result.error) {
+    alert("هەڵە: " + result.error.message);
+    return;
+  }
 
-function setupNavigation() {
-  document.querySelectorAll(".nav-item").forEach(btn => {
-    btn.addEventListener("click", () => {
-      document.querySelectorAll(".nav-item").forEach(x => x.classList.remove("active"));
-      btn.classList.add("active");
-
-      const page = btn.dataset.page;
-      document.querySelectorAll(".page-section").forEach(s => s.classList.add("hidden"));
-
-      const target = document.getElementById("page-" + page);
-      if (target) target.classList.remove("hidden");
-    });
-  });
-}
-
-function setupLanguageTabs() {
-  document.querySelectorAll(".language-tabs button").forEach(btn => {
-    btn.addEventListener("click", async () => {
-      document.querySelectorAll(".language-tabs button").forEach(x => x.classList.remove("active"));
-      btn.classList.add("active");
-      currentLanguage = btn.dataset.lang || "ku_sorani";
-      await loadTexts();
-    });
-  });
+  await loadSettings();
+  toast("ڕێکخستن پاشەکەوت بوو");
 }
 
 function updateStats() {
   setText("totalProducts", products.length);
-  setText("totalOrders", orders.length);
-  setText("activeDiscounts", products.filter(p => p.is_discounted).length);
   setText("totalCategories", categories.length);
+  setText("totalOrders", orders.length);
+  setText(
+    "newSupportCount",
+    supportMessages.filter((m) => !m.admin_reply).length
+  );
+}
 
-  const sales = orders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
-  setText("todaySales", formatIqd(sales));
+function isImageUrl(value) {
+  const v = String(value || "").toLowerCase().trim();
+
+  return (
+    v.startsWith("http://") ||
+    v.startsWith("https://") ||
+    v.endsWith(".png") ||
+    v.endsWith(".jpg") ||
+    v.endsWith(".jpeg") ||
+    v.endsWith(".webp")
+  );
+}
+
+function orderStatusText(status) {
+  const map = {
+    new: "نوێ",
+    preparing: "ئامادەکرن",
+    delivered: "گەهاندی",
+    cancelled: "هەلوەشاندی",
+  };
+
+  return map[status] || status || "نوێ";
 }
 
 function getValue(id) {
@@ -588,7 +789,7 @@ function setValue(id, value) {
 }
 
 function getChecked(id) {
-  return document.getElementById(id)?.checked || false;
+  return !!document.getElementById(id)?.checked;
 }
 
 function setChecked(id, value) {
@@ -598,10 +799,10 @@ function setChecked(id, value) {
 
 function setText(id, value) {
   const el = document.getElementById(id);
-  if (el) el.textContent = value;
+  if (el) el.textContent = value ?? "";
 }
 
-function formatIqd(value) {
+function formatMoney(value) {
   return `${new Intl.NumberFormat("en-US").format(Number(value || 0))} IQD`;
 }
 
@@ -611,10 +812,26 @@ function formatDate(date) {
 }
 
 function escapeHtml(value) {
-  return String(value || "")
+  return String(value ?? "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function escapeAttr(value) {
+  return escapeHtml(value);
+}
+
+function toast(message) {
+  const t = document.getElementById("toast");
+  if (!t) return;
+
+  t.textContent = message;
+  t.classList.add("show");
+
+  setTimeout(() => {
+    t.classList.remove("show");
+  }, 1800);
 }
