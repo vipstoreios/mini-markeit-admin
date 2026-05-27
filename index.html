@@ -1,564 +1,294 @@
-<!DOCTYPE html>
-<html lang="ckb" dir="rtl">
+<!doctype html>
+<html lang="ku" dir="rtl">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Mini markeit Admin</title>
-
-  <link rel="stylesheet" href="style.css?v=10" />
-
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 </head>
 
 <body>
-  <div id="loginPage" class="login-page">
+  <div id="toast" class="toast"></div>
+
+  <section id="loginPage" class="login-page">
     <div class="login-card">
-      <div class="login-logo">
-        <div class="logo-icon">
-          <i data-lucide="shopping-bag"></i>
-        </div>
-        <div>
-          <h1>Mini markeit</h1>
-          <p>مینی مارکێت - داشبۆردی ئەدمین</p>
-        </div>
-      </div>
+      <div class="logo-circle">M</div>
+      <h1>Mini markeit</h1>
+      <p>داشبۆردا ئەدمینی</p>
 
-      <h2>چوونەژوورەوە</h2>
-      <p class="login-subtitle">بە ئیمەیڵ و پاسۆردی Supabase Admin بچۆ ژوورەوە.</p>
+      <input id="usernameInput" type="email" placeholder="ئیمەیڵ" />
+      <input id="passwordInput" type="password" placeholder="پاسۆرد" />
 
-      <label>ئیمەیڵ</label>
-      <input id="usernameInput" type="email" placeholder="admin@mini-markeit.com" />
-
-      <label>پاسۆرد</label>
-      <input id="passwordInput" type="password" placeholder="••••••••" />
-
-      <button onclick="login()" class="primary-btn full-btn">چوونەژوورەوە</button>
-      <p id="loginError" class="login-error"></p>
+      <button class="btn primary full" onclick="login()">چوونەژوورەوە</button>
+      <div id="loginError" class="error"></div>
     </div>
-  </div>
+  </section>
 
-  <div id="app" class="app hidden">
+  <main id="app" class="app hidden">
     <aside class="sidebar">
       <div class="brand">
-        <div class="brand-icon">
-          <i data-lucide="shopping-bag"></i>
-        </div>
+        <div class="logo-circle small">M</div>
         <div>
           <h2>Mini markeit</h2>
-          <p>مینی مارکێت</p>
+          <p>Admin Dashboard</p>
         </div>
       </div>
 
-      <nav class="nav">
-        <button class="nav-item active" data-page="dashboard">
-          <i data-lucide="layout-dashboard"></i>
-          <span>سیستەمی سەرەکی</span>
-        </button>
+      <button class="nav active" data-page="dashboard">سەرەکی</button>
+      <button class="nav" data-page="products">کەلوپەل</button>
+      <button class="nav" data-page="categories">پۆلێن / بەشەکان</button>
+      <button class="nav" data-page="orders">داواکاری</button>
+      <button class="nav" data-page="support">چات دگەل پشتەڤانیێ</button>
+      <button class="nav" data-page="settings">ڕێکخستن</button>
 
-        <div class="nav-title">بەڕێوەبردنی فرۆشتن</div>
-
-        <button class="nav-item" data-page="orders">
-          <i data-lucide="shopping-cart"></i>
-          <span>فەرمانەکان</span>
-        </button>
-
-        <button class="nav-item" data-page="products">
-          <i data-lucide="package"></i>
-          <span>کاڵاکان</span>
-        </button>
-
-        <button class="nav-item" data-page="categories">
-          <i data-lucide="blocks"></i>
-          <span>هاوپۆلەکان</span>
-        </button>
-
-        <button class="nav-item" data-page="localization">
-          <i data-lucide="languages"></i>
-          <span>گۆڕینی دەق و زمان</span>
-        </button>
-
-        <button class="nav-item" data-page="settings">
-          <i data-lucide="store"></i>
-          <span>ڕێکخستنی دوکان</span>
-        </button>
-
-        <button class="nav-item" data-page="appearance">
-          <i data-lucide="palette"></i>
-          <span>بانەر و ڕووکار</span>
-        </button>
-
-        <button class="nav-item" data-page="admins">
-          <i data-lucide="users"></i>
-          <span>بەکارهێنەرانی ئەدمین</span>
-        </button>
-
-        <button class="nav-item" data-page="reports">
-          <i data-lucide="bar-chart-3"></i>
-          <span>ڕاپۆرت و ئامار</span>
-        </button>
-      </nav>
-
-      <div class="support-box">
-        <i data-lucide="headphones"></i>
-        <div>
-          <strong>پشتیوانی</strong>
-          <span>24/7 چات یان واتسئاپ</span>
-        </div>
-      </div>
+      <button class="logout" onclick="logout()">چوونەدەرەوە</button>
     </aside>
 
-    <main class="main">
+    <section class="content">
       <header class="topbar">
-        <div class="topbar-left">
-          <button class="icon-btn">
-            <i data-lucide="menu"></i>
-          </button>
-
-          <div class="search-box">
-            <i data-lucide="search"></i>
-            <input type="text" placeholder="گەڕان بۆ کاڵا، فەرمان، کڕیار..." />
-            <kbd>⌘K</kbd>
-          </div>
+        <div>
+          <h1 id="pageTitle">سەرەکی</h1>
+          <p>بەڕێوەبردنا ئەپ، کەلوپەل، پۆل، داواکاری و چات</p>
         </div>
-
-        <div class="topbar-actions">
-          <button onclick="loadAllData()" class="refresh-btn">
-            <i data-lucide="refresh-cw"></i>
-            نوێکردنەوە
-          </button>
-
-          <button class="language-btn">
-            <i data-lucide="globe"></i>
-            کوردی
-          </button>
-
-          <div class="profile">
-            <div class="avatar">A</div>
-            <div>
-              <strong>ئیدمین</strong>
-              <span>Super Admin</span>
-            </div>
-          </div>
-
-          <button onclick="logout()" class="secondary-btn">چوونەدەرەوە</button>
-        </div>
+        <button class="btn secondary" onclick="loadAllData()">نویکرنەوە</button>
       </header>
 
-      <section class="content">
-        <section id="page-dashboard" class="page-section">
-          <div class="kpi-grid">
-            <div class="kpi-card">
-              <div>
-                <p>کاڵای گشتی</p>
-                <h3 id="totalProducts">0</h3>
-                <span>لە Supabase</span>
-              </div>
-              <div class="kpi-icon"><i data-lucide="package"></i></div>
-            </div>
+      <section id="page-dashboard" class="page">
+        <div class="stats">
+          <div class="stat"><span>کەلوپەل</span><b id="totalProducts">0</b></div>
+          <div class="stat"><span>پۆل</span><b id="totalCategories">0</b></div>
+          <div class="stat"><span>داواکاری</span><b id="totalOrders">0</b></div>
+          <div class="stat"><span>چاتێن نوێ</span><b id="newSupportCount">0</b></div>
+        </div>
 
-            <div class="kpi-card">
-              <div>
-                <p>فەرمانی گشتی</p>
-                <h3 id="totalOrders">0</h3>
-                <span>لە ئەپی کڕیاران</span>
-              </div>
-              <div class="kpi-icon"><i data-lucide="shopping-cart"></i></div>
-            </div>
-
-            <div class="kpi-card">
-              <div>
-                <p>فرۆشتنی گشتی</p>
-                <h3 id="todaySales">0 IQD</h3>
-                <span>بە ژمارەی ئینگلیزی</span>
-              </div>
-              <div class="kpi-icon"><i data-lucide="wallet"></i></div>
-            </div>
-
-            <div class="kpi-card">
-              <div>
-                <p>داشکاندنی چالاک</p>
-                <h3 id="activeDiscounts">0</h3>
-                <span>کاڵای داشکاندراو</span>
-              </div>
-              <div class="kpi-icon"><i data-lucide="badge-percent"></i></div>
-            </div>
-
-            <div class="kpi-card">
-              <div>
-                <p>هاوپۆلەکان</p>
-                <h3 id="totalCategories">0</h3>
-                <span>بەشی کاڵاکان</span>
-              </div>
-              <div class="kpi-icon"><i data-lucide="blocks"></i></div>
-            </div>
-
-            <div class="kpi-card">
-              <div>
-                <p>دۆخی ئەپ</p>
-                <h3>چالاک</h3>
-                <span>Supabase Connected</span>
-              </div>
-              <div class="kpi-icon check"><i data-lucide="check"></i></div>
-            </div>
-          </div>
-
-          <div class="two-column">
-            <div class="panel">
-              <div class="panel-header">
-                <h3>فەرمانە نوێترینەکان</h3>
-              </div>
-
-              <div class="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>ژمارە</th>
-                      <th>کڕیار</th>
-                      <th>کات</th>
-                      <th>کۆی گشتی</th>
-                      <th>دۆخ</th>
-                      <th>چالاکی</th>
-                    </tr>
-                  </thead>
-                  <tbody id="ordersTable"></tbody>
-                </table>
-              </div>
-            </div>
-
-            <div class="panel">
-              <div class="panel-header">
-                <h3>کاڵاکان</h3>
-                <button class="primary-btn" onclick="openProductModal()">
-                  <i data-lucide="plus"></i>
-                  زیادکردنی کاڵا
-                </button>
-              </div>
-
-              <div class="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>وێنە</th>
-                      <th>ناوی کاڵا</th>
-                      <th>هاوپۆل</th>
-                      <th>نرخ</th>
-                      <th>دابینە</th>
-                      <th>داشکاندن</th>
-                      <th>چالاکی</th>
-                    </tr>
-                  </thead>
-                  <tbody id="productsTable"></tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section id="page-products" class="page-section hidden">
+        <div class="grid2">
           <div class="panel">
-            <div class="panel-header">
-              <h3>بەڕێوەبردنی کاڵاکان</h3>
-              <button class="primary-btn" onclick="openProductModal()">
-                <i data-lucide="plus"></i>
-                زیادکردنی کاڵا
-              </button>
+            <div class="panel-head">
+              <h2>دوماهیک داواکاری</h2>
+              <button class="btn mini" onclick="showPage('orders')">بینین</button>
             </div>
-
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>وێنە</th>
-                    <th>ناوی کاڵا</th>
-                    <th>هاوپۆل</th>
-                    <th>نرخ</th>
-                    <th>دابینە</th>
-                    <th>داشکاندن</th>
-                    <th>چالاکی</th>
-                  </tr>
-                </thead>
-                <tbody id="productsTableSecond"></tbody>
-              </table>
-            </div>
-            <p style="color:#6b756d;font-weight:800;margin-top:14px">
-              تێبینی: کاڵاکان لە پەڕەی سەرەکی و لێرە هەمان داتان. پاش زیادکردن Refresh بکە.
-            </p>
+            <div id="latestOrders"></div>
           </div>
-        </section>
 
-        <section id="page-orders" class="page-section hidden">
           <div class="panel">
-            <div class="panel-header">
-              <h3>فەرمانەکان</h3>
-              <button class="refresh-btn" onclick="loadOrders()">نوێکردنەوە</button>
+            <div class="panel-head">
+              <h2>دوماهیک چات</h2>
+              <button class="btn mini" onclick="showPage('support')">بینین</button>
             </div>
-
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>ژمارە</th>
-                    <th>کڕیار</th>
-                    <th>کات</th>
-                    <th>کۆی گشتی</th>
-                    <th>دۆخ</th>
-                    <th>چالاکی</th>
-                  </tr>
-                </thead>
-                <tbody id="ordersTableSecond"></tbody>
-              </table>
-            </div>
+            <div id="latestSupport"></div>
           </div>
-        </section>
-
-        <section id="page-categories" class="page-section hidden">
-          <div class="panel">
-            <div class="panel-header">
-              <h3>هاوپۆلەکان</h3>
-              <button class="primary-btn" onclick="addCategory()">
-                <i data-lucide="plus"></i>
-                زیادکردنی هاوپۆل
-              </button>
-            </div>
-
-            <div id="categoriesList" class="list-box"></div>
-          </div>
-        </section>
-
-        <section id="page-localization" class="page-section hidden">
-          <div class="panel localization-panel">
-            <div class="panel-header">
-              <h3>گۆڕینی دەق و زمان</h3>
-              <button class="primary-btn" onclick="addTextKey()">
-                <i data-lucide="plus"></i>
-                زیادکردنی کلیلیدی
-              </button>
-            </div>
-
-            <div class="language-tabs">
-              <button class="active" data-lang="ku_sorani">کوردی سۆرانی</button>
-              <button data-lang="ku_badini">کوردی بادینی</button>
-              <button data-lang="ar">العربية</button>
-              <button data-lang="en">English</button>
-            </div>
-
-            <div class="localization-layout">
-              <div class="text-sections">
-                <button class="section-item active">گشتی</button>
-                <button class="section-item">سەرەکی</button>
-                <button class="section-item">کاڵاکان</button>
-                <button class="section-item">سەبەتە</button>
-                <button class="section-item">فەرمانەکان</button>
-              </div>
-
-              <div class="text-editor" id="localizationEditor"></div>
-            </div>
-          </div>
-        </section>
-
-        <section id="page-settings" class="page-section hidden">
-          <div class="panel">
-            <div class="panel-header">
-              <h3>ڕێکخستنی دوکان و ئەپ</h3>
-            </div>
-
-            <div class="form-grid">
-              <label>
-                ناوی ئەپ
-                <input id="settingAppName" value="Mini markeit" />
-              </label>
-
-              <label>
-                ناوی دوکان
-                <input id="settingStoreName" value="مینی مارکێت" />
-              </label>
-
-              <label>
-                ناونیشان
-                <input id="settingAddress" value="دهۆك، جادا بارزان، مینی مارکێت" />
-              </label>
-
-              <label>
-                ژمارەی WhatsApp
-                <input id="settingWhatsapp" placeholder="9647500000000" />
-              </label>
-
-              <label>
-                کرێی گەیاندن
-                <input id="settingDeliveryFee" value="0" />
-              </label>
-
-              <label>
-                کەمترین داواکاری
-                <input id="settingMinimumOrder" value="0" />
-              </label>
-
-              <label>
-                سەردێڕی بانەر
-                <input id="settingBannerTitle" value="بەخێربێیت بۆ Mini markeit" />
-              </label>
-
-              <label>
-                ژێردێڕی بانەر
-                <input id="settingBannerSubtitle" value="کاڵاکانت هەڵبژێرە و داواکارییەکەت بنێرە" />
-              </label>
-            </div>
-
-            <button class="primary-btn full-btn" onclick="saveSettings()">
-              <i data-lucide="save"></i>
-              پاشەکەوتکردنی ڕێکخستنەکان
-            </button>
-          </div>
-        </section>
-
-        <section id="page-appearance" class="page-section hidden">
-          <div class="panel">
-            <div class="panel-header">
-              <h3>بانەر و ڕووکار</h3>
-            </div>
-
-            <div class="banner-preview">
-              <div>
-                <strong>بەخێربێیت بۆ Mini markeit</strong>
-                <span>کاڵاکانت هەڵبژێرە و داواکارییەکەت بنێرە</span>
-              </div>
-              <i data-lucide="shopping-cart"></i>
-            </div>
-
-            <p style="font-weight:800;color:#6b756d">
-              دواتر گۆڕینی لۆگۆ و وێنەی بانەر بە Storage ـی Supabase دەبەستینەوە.
-            </p>
-          </div>
-        </section>
-
-        <section id="page-admins" class="page-section hidden">
-          <div class="panel">
-            <div class="panel-header">
-              <h3>بەکارهێنەرانی ئەدمین</h3>
-            </div>
-
-            <div class="admin-user">
-              <div class="avatar">A</div>
-              <div>
-                <strong>ئیدمین</strong>
-                <span>Super Admin</span>
-              </div>
-              <span class="status active">چالاک</span>
-            </div>
-
-            <p style="font-weight:800;color:#6b756d">
-              ئەدمینەکان لە Supabase → Authentication → Users زیاد دەکرێن.
-            </p>
-          </div>
-        </section>
-
-        <section id="page-reports" class="page-section hidden">
-          <div class="panel">
-            <div class="panel-header">
-              <h3>ڕاپۆرت و ئامار</h3>
-            </div>
-
-            <div class="summary-layout">
-              <div class="donut-card">
-                <div class="donut">
-                  <div>
-                    <strong id="reportOrders">0</strong>
-                    <span>فەرمان</span>
-                  </div>
-                </div>
-
-                <div class="legend">
-                  <div><span class="dot blue"></span> کاڵا <strong id="reportProducts">0</strong></div>
-                  <div><span class="dot green"></span> هاوپۆل <strong id="reportCategories">0</strong></div>
-                  <div><span class="dot yellow"></span> داشکاندن <strong id="reportDiscounts">0</strong></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
+        </div>
       </section>
-    </main>
-  </div>
+
+      <section id="page-products" class="page hidden">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>کەلوپەل</h2>
+            <button class="btn primary" onclick="openProductModal()">زیادکرنا کەلوپەل</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>وێنە</th>
+                  <th>ناڤ</th>
+                  <th>پۆل</th>
+                  <th>نرخ</th>
+                  <th>دۆخ</th>
+                  <th>چالاکی</th>
+                </tr>
+              </thead>
+              <tbody id="productsTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="page-categories" class="page hidden">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>پۆلێن / بەشەکان</h2>
+            <button class="btn primary" onclick="openCategoryModal()">زیادکرنا پۆل</button>
+          </div>
+          <div id="categoriesList" class="cards"></div>
+        </div>
+      </section>
+
+      <section id="page-orders" class="page hidden">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>داواکاری</h2>
+            <button class="btn secondary" onclick="loadOrders()">نویکرنەوە</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>ژمارە</th>
+                  <th>کڕیار</th>
+                  <th>مۆبایل</th>
+                  <th>کۆی گشتی</th>
+                  <th>دۆخ</th>
+                  <th>چالاکی</th>
+                </tr>
+              </thead>
+              <tbody id="ordersTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="page-support" class="page hidden">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>چات دگەل پشتەڤانیێ</h2>
+            <button class="btn secondary" onclick="loadSupportMessages()">نویکرنەوە</button>
+          </div>
+          <div id="supportList" class="support-list"></div>
+        </div>
+      </section>
+
+      <section id="page-settings" class="page hidden">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>ڕێکخستنا دوکانێ</h2>
+            <button class="btn primary" onclick="saveSettings()">پاشەکەوتکرن</button>
+          </div>
+
+          <div class="form-grid">
+            <label>ناڤێ ئەپێ
+              <input id="settingAppName" placeholder="Mini markeit" />
+            </label>
+
+            <label>ناڤێ دوکانێ
+              <input id="settingStoreName" placeholder="مینی مارکێت" />
+            </label>
+
+            <label>ناونیشان
+              <input id="settingAddress" placeholder="Duhok, Barzan Road" />
+            </label>
+
+            <label>ژمارا مۆبایلی
+              <input id="settingPhone" placeholder="0750..." />
+            </label>
+
+            <label>WhatsApp
+              <input id="settingWhatsapp" placeholder="0750..." />
+            </label>
+
+            <label>کرێیا گەهاندنێ
+              <input id="settingDeliveryFee" type="number" placeholder="1500" />
+            </label>
+
+            <label>دەمێ گەهاندنێ
+              <input id="settingDeliveryTime" placeholder="60 - 90 خولەک" />
+            </label>
+
+            <label class="check">
+              <input id="settingIsOpen" type="checkbox" />
+              دوکان چالاکە
+            </label>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
 
   <div id="productModal" class="modal hidden">
     <div class="modal-card">
-      <div class="modal-header">
-        <h3>زیادکردن / گۆڕینی کاڵا</h3>
-        <button onclick="closeProductModal()" class="icon-btn">
-          <i data-lucide="x"></i>
-        </button>
+      <div class="modal-head">
+        <h2 id="productModalTitle">زیادکرنا کەلوپەل</h2>
+        <button onclick="closeProductModal()">×</button>
       </div>
 
-      <div class="modal-body">
-        <label>
-          ناوی کاڵا - سۆرانی
-          <input id="productName" placeholder="نموونە: شیر تازە" />
+      <div class="form-grid">
+        <label>ناڤ - سۆرانی
+          <input id="productNameSorani" />
         </label>
-
-        <label>
-          ناوی کاڵا - بادینی
-          <input id="productNameBadini" placeholder="نموونە: شیرێ تازە" />
+        <label>ناڤ - بادینی
+          <input id="productNameBadini" />
         </label>
-
-        <label>
-          ناوی کاڵا - عەرەبی
-          <input id="productNameAr" placeholder="حليب طازج" />
+        <label>ناڤ - عەرەبی
+          <input id="productNameAr" />
         </label>
-
-        <label>
-          ناوی کاڵا - ئینگلیزی
-          <input id="productNameEn" placeholder="Fresh milk" />
+        <label>ناڤ - English
+          <input id="productNameEn" />
         </label>
-
-        <label>
-          هاوپۆل
+        <label>پۆل
           <select id="productCategory"></select>
         </label>
-
-        <label>
-          نرخ
-          <input id="productPrice" placeholder="1250" />
+        <label>نرخ
+          <input id="productPrice" type="number" />
         </label>
-
-        <label>
-          یەکە / قەبارە
-          <input id="productUnit" placeholder="1 لیتر" />
+        <label>نرخی کۆن
+          <input id="productOldPrice" type="number" />
         </label>
-
-        <label>
-          URL ـی وێنە
+        <label>یەکە / قەبارە
+          <input id="productUnit" />
+        </label>
+        <label class="wide">لینکا وێنە
           <input id="productImage" placeholder="https://..." />
         </label>
-
-        <div class="checkbox-row">
-          <label>
-            <input id="productAvailable" type="checkbox" checked />
-            دابینە
-          </label>
-
-          <label>
-            <input id="productDiscount" type="checkbox" />
-            داشکاندن
-          </label>
-        </div>
+        <label>ڕیزبەندی
+          <input id="productSort" type="number" />
+        </label>
+        <label class="check">
+          <input id="productAvailable" type="checkbox" />
+          چالاکە
+        </label>
+        <label class="check">
+          <input id="productDiscount" type="checkbox" />
+          داشکاندن
+        </label>
       </div>
 
       <div class="modal-actions">
-        <button class="secondary-btn" onclick="closeProductModal()">داخستن</button>
-        <button class="primary-btn" onclick="saveProduct()">پاشەکەوتکردن</button>
+        <button class="btn secondary" onclick="closeProductModal()">داخستن</button>
+        <button class="btn primary" onclick="saveProduct()">پاشەکەوتکرن</button>
       </div>
     </div>
   </div>
 
-  <script src="script.js?v=10"></script>
+  <div id="categoryModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2 id="categoryModalTitle">زیادکرنا پۆلێ</h2>
+        <button onclick="closeCategoryModal()">×</button>
+      </div>
+
+      <div class="form-grid">
+        <label>ناڤ - سۆرانی
+          <input id="categoryNameSorani" />
+        </label>
+        <label>ناڤ - بادینی
+          <input id="categoryNameBadini" />
+        </label>
+        <label>ناڤ - عەرەبی
+          <input id="categoryNameAr" />
+        </label>
+        <label>ناڤ - English
+          <input id="categoryNameEn" />
+        </label>
+        <label class="wide">لینکا وێنەی پۆلێ
+          <input id="categoryIcon" placeholder="https://... یان لینکێ Storage" />
+        </label>
+        <label>ڕیزبەندی
+          <input id="categorySort" type="number" />
+        </label>
+        <label class="check">
+          <input id="categoryActive" type="checkbox" />
+          چالاکە
+        </label>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn secondary" onclick="closeCategoryModal()">داخستن</button>
+        <button class="btn primary" onclick="saveCategory()">پاشەکەوتکرن</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
 </body>
 </html>
