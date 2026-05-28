@@ -29,7 +29,90 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 });
 
+
+function injectPromoStyles() {
+  if (document.getElementById("promoInlineStyles")) return;
+
+  const style = document.createElement("style");
+  style.id = "promoInlineStyles";
+  style.textContent = `
+    .promo-products-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 8px 0 10px;
+    }
+    .promo-products-head b {
+      margin-left: auto;
+      color: var(--text, #102915);
+      font-size: 14px;
+    }
+    .promo-products-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      max-height: 260px;
+      overflow: auto;
+      padding: 4px;
+      border: 1px solid var(--border, #dfe9e2);
+      border-radius: 18px;
+      background: #fbfdfb;
+    }
+    .promo-product-item {
+      display: grid;
+      grid-template-columns: auto 44px 1fr;
+      align-items: center;
+      gap: 8px;
+      padding: 8px;
+      border: 1px solid var(--border, #dfe9e2);
+      border-radius: 16px;
+      background: white;
+      cursor: pointer;
+    }
+    .promo-product-item input {
+      width: auto;
+      margin: 0;
+    }
+    .promo-product-img {
+      width: 44px;
+      height: 44px;
+      border-radius: 13px;
+      background: #edf4ef;
+      overflow: hidden;
+      display: grid;
+      place-items: center;
+    }
+    .promo-product-img img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .promo-product-item b {
+      display: block;
+      font-size: 13px;
+      color: var(--text, #102915);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .promo-product-item small {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted, #66736a);
+      font-weight: 800;
+    }
+    @media (max-width: 560px) {
+      .promo-products-list {
+        grid-template-columns: 1fr;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+
 function injectPromoDashboard() {
+  injectPromoStyles();
   const sidebar = document.querySelector(".sidebar");
   const settingsNav = document.querySelector('.nav[data-page="settings"]');
 
@@ -137,6 +220,20 @@ function injectPromoDashboard() {
             <input id="promoActive" type="checkbox" />
             پرۆمۆ کۆد چالاکە
           </label>
+
+          <label class="check wide">
+            <input id="promoOnlySelectedProducts" type="checkbox" onchange="togglePromoProductsBox()" />
+            تەنها بۆ بەرهەمە هەڵبژێردراوەکان کار بکات
+          </label>
+
+          <div id="promoProductsBox" class="wide hidden">
+            <div class="promo-products-head">
+              <b>بەرهەمەکان هەڵبژێرە</b>
+              <button type="button" class="btn mini" onclick="selectAllPromoProducts()">هەموو</button>
+              <button type="button" class="btn mini" onclick="clearPromoProducts()">هیچ</button>
+            </div>
+            <div id="promoProductsList" class="promo-products-list"></div>
+          </div>
         </div>
 
         <div class="modal-actions">
@@ -304,7 +401,7 @@ async function loadSupportMessages() {
 async function loadPromoCodes() {
   const { data, error } = await sb
     .from("promo_codes")
-    .select("*")
+    .select("*, promo_code_products(product_id)")
     .order("created_at", { ascending: false })
     .limit(200);
 
@@ -604,6 +701,68 @@ function renderPromoCodes() {
     .join("");
 }
 
+
+function renderPromoProductsSelector(selectedIds = []) {
+  const box = document.getElementById("promoProductsList");
+  if (!box) return;
+
+  if (!products.length) {
+    box.innerHTML = `<div class="empty">هێشتا بەرهەم نییە</div>`;
+    return;
+  }
+
+  const selected = new Set((selectedIds || []).map(String));
+
+  box.innerHTML = products
+    .map((p) => {
+      const name = p.name_ku_badini || p.name_ku_sorani || p.name_en || "بەرهەم";
+      const checked = selected.has(String(p.id)) ? "checked" : "";
+      const image = p.image_url
+        ? `<img src="${escapeAttr(p.image_url)}" alt="">`
+        : `<span>🛍️</span>`;
+
+      return `
+        <label class="promo-product-item">
+          <input type="checkbox" class="promo-product-check" value="${escapeAttr(p.id)}" ${checked} />
+          <div class="promo-product-img">${image}</div>
+          <div>
+            <b>${escapeHtml(name)}</b>
+            <small>${formatMoney(p.price || 0)}</small>
+          </div>
+        </label>
+      `;
+    })
+    .join("");
+}
+
+function getSelectedPromoProductIds() {
+  return Array.from(document.querySelectorAll(".promo-product-check:checked")).map((el) => el.value);
+}
+
+function togglePromoProductsBox() {
+  const box = document.getElementById("promoProductsBox");
+  if (!box) return;
+
+  const enabled = getChecked("promoOnlySelectedProducts");
+  box.classList.toggle("hidden", !enabled);
+
+  if (enabled) {
+    renderPromoProductsSelector(getSelectedPromoProductIds());
+  }
+}
+
+function selectAllPromoProducts() {
+  document.querySelectorAll(".promo-product-check").forEach((el) => {
+    el.checked = true;
+  });
+}
+
+function clearPromoProducts() {
+  document.querySelectorAll(".promo-product-check").forEach((el) => {
+    el.checked = false;
+  });
+}
+
 function fillCategorySelect() {
   const select = document.getElementById("productCategory");
   if (!select) return;
@@ -837,6 +996,10 @@ function openPromoModal() {
   setValue("promoExpiresAt", "");
 
   setChecked("promoActive", true);
+  setChecked("promoOnlySelectedProducts", false);
+
+  renderPromoProductsSelector([]);
+  togglePromoProductsBox();
 
   document.getElementById("promoModal").classList.remove("hidden");
 }
@@ -863,6 +1026,11 @@ function editPromo(id) {
   setValue("promoExpiresAt", p.expires_at ? toDatetimeLocal(p.expires_at) : "");
 
   setChecked("promoActive", p.is_active !== false);
+  setChecked("promoOnlySelectedProducts", p.only_selected_products === true);
+
+  const selectedIds = ((p.promo_code_products || [])).map((x) => x.product_id);
+  renderPromoProductsSelector(selectedIds);
+  togglePromoProductsBox();
 
   document.getElementById("promoModal").classList.remove("hidden");
 }
@@ -895,6 +1063,7 @@ async function savePromo() {
     min_order_total: Number(getValue("promoMinOrder") || 0),
     max_uses: getValue("promoMaxUses") ? Number(getValue("promoMaxUses")) : null,
     is_active: getChecked("promoActive"),
+    only_selected_products: getChecked("promoOnlySelectedProducts"),
     expires_at: getValue("promoExpiresAt")
       ? new Date(getValue("promoExpiresAt")).toISOString()
       : null,
@@ -911,6 +1080,46 @@ async function savePromo() {
   if (result.error) {
     alert("هەڵە: " + result.error.message);
     return;
+  }
+
+  let promoId = currentPromoId;
+
+  if (!promoId) {
+    const { data: savedPromo, error: fetchError } = await sb
+      .from("promo_codes")
+      .select("id")
+      .eq("code", code)
+      .maybeSingle();
+
+    if (fetchError || !savedPromo) {
+      alert("پرۆمۆ پاشەکەوت بوو، بەڵام ID نەدۆزرایەوە.");
+      return;
+    }
+
+    promoId = savedPromo.id;
+  }
+
+  await sb.from("promo_code_products").delete().eq("promo_code_id", promoId);
+
+  if (getChecked("promoOnlySelectedProducts")) {
+    const selectedProductIds = getSelectedPromoProductIds();
+
+    if (!selectedProductIds.length) {
+      alert("ئەگەر تەنها بەرهەمە هەڵبژێردراوەکان هەڵدەبژێریت، پێویستە لانیکەم بەرهەمێک دیاری بکەیت.");
+      return;
+    }
+
+    const rows = selectedProductIds.map((productId) => ({
+      promo_code_id: promoId,
+      product_id: productId,
+    }));
+
+    const { error: linkError } = await sb.from("promo_code_products").insert(rows);
+
+    if (linkError) {
+      alert("پرۆمۆ پاشەکەوت بوو، بەڵام بەستنەوەی بەرهەمان هەڵەی دا: " + linkError.message);
+      return;
+    }
   }
 
   closePromoModal();
