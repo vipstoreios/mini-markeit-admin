@@ -6,12 +6,17 @@ let products = [];
 let categories = [];
 let orders = [];
 let supportMessages = [];
+let promoCodes = [];
 let settingsRow = null;
+
 let currentProductId = null;
 let currentCategoryId = null;
+let currentPromoId = null;
 
 document.addEventListener("DOMContentLoaded", async () => {
   sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  injectPromoDashboard();
   setupNavigation();
 
   const { data } = await sb.auth.getSession();
@@ -23,6 +28,136 @@ document.addEventListener("DOMContentLoaded", async () => {
     showLogin();
   }
 });
+
+function injectPromoDashboard() {
+  const sidebar = document.querySelector(".sidebar");
+  const settingsNav = document.querySelector('.nav[data-page="settings"]');
+
+  if (sidebar && !document.querySelector('.nav[data-page="promos"]')) {
+    const btn = document.createElement("button");
+    btn.className = "nav";
+    btn.dataset.page = "promos";
+    btn.textContent = "پرۆمۆ کۆد";
+    if (settingsNav) {
+      sidebar.insertBefore(btn, settingsNav);
+    } else {
+      sidebar.appendChild(btn);
+    }
+  }
+
+  const content = document.querySelector(".content");
+  if (content && !document.getElementById("page-promos")) {
+    const page = document.createElement("section");
+    page.id = "page-promos";
+    page.className = "page hidden";
+    page.innerHTML = `
+      <div class="panel">
+        <div class="panel-head">
+          <h2>پرۆمۆ کۆد</h2>
+          <button class="btn primary" onclick="openPromoModal()">زیادکرنا پرۆمۆ کۆد</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>کۆد</th>
+                <th>ناونیشان</th>
+                <th>جۆر</th>
+                <th>بڕ</th>
+                <th>بەکارهێنان</th>
+                <th>دۆخ</th>
+                <th>چالاکی</th>
+              </tr>
+            </thead>
+            <tbody id="promosTable"></tbody>
+          </table>
+        </div>
+      </div>
+    `;
+    content.appendChild(page);
+  }
+
+  if (!document.getElementById("promoModal")) {
+    const modal = document.createElement("div");
+    modal.id = "promoModal";
+    modal.className = "modal hidden";
+    modal.innerHTML = `
+      <div class="modal-card">
+        <div class="modal-head">
+          <h2 id="promoModalTitle">زیادکرنا پرۆمۆ کۆد</h2>
+          <button onclick="closePromoModal()">×</button>
+        </div>
+
+        <div class="form-grid">
+          <label>کۆدی پرۆمۆ
+            <input id="promoCode" placeholder="EID10 یان FREEDELIVERY" />
+          </label>
+
+          <label>ناونیشان
+            <input id="promoTitle" placeholder="داشکاندنی جەژن" />
+          </label>
+
+          <label class="wide">وەسف
+            <input id="promoDescription" placeholder="وەسفی داشکاندن" />
+          </label>
+
+          <label>جۆری داشکاندن
+            <select id="promoDiscountType">
+              <option value="percent">ڕێژە %</option>
+              <option value="fixed">بڕی پارە IQD</option>
+              <option value="free_delivery">گەیاندنی خۆرایی</option>
+              <option value="delivery_fixed">داشکاندنی گەیاندن IQD</option>
+            </select>
+          </label>
+
+          <label>بڕی داشکاندن
+            <input id="promoDiscountValue" type="number" placeholder="10 یان 2000" />
+          </label>
+
+          <label>بۆ چی بەکاربێت؟
+            <select id="promoAppliesTo">
+              <option value="order">کۆی داواکاری</option>
+              <option value="delivery">گەیاندن</option>
+            </select>
+          </label>
+
+          <label>کەمترین کۆی داواکاری
+            <input id="promoMinOrder" type="number" placeholder="5000" />
+          </label>
+
+          <label>زۆرترین جار بەکارهێنان
+            <input id="promoMaxUses" type="number" placeholder="100" />
+          </label>
+
+          <label>بەرواری کۆتایی
+            <input id="promoExpiresAt" type="datetime-local" />
+          </label>
+
+          <label class="check">
+            <input id="promoActive" type="checkbox" />
+            پرۆمۆ کۆد چالاکە
+          </label>
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn secondary" onclick="closePromoModal()">داخستن</button>
+          <button class="btn primary" onclick="savePromo()">پاشەکەوتکرن</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  }
+
+  if (!document.getElementById("totalPromos")) {
+    const stats = document.querySelector(".stats");
+    if (stats) {
+      const stat = document.createElement("div");
+      stat.className = "stat";
+      stat.innerHTML = `<span>پرۆمۆ کۆد</span><b id="totalPromos">0</b>`;
+      stats.appendChild(stat);
+    }
+  }
+}
 
 function showLogin() {
   document.getElementById("loginPage").classList.remove("hidden");
@@ -81,6 +216,7 @@ function showPage(page) {
     categories: "پۆلێن / بەشەکان",
     orders: "داواکاری",
     support: "چات دگەل پشتەڤانیێ",
+    promos: "پرۆمۆ کۆد",
     settings: "ڕێکخستن",
   };
 
@@ -93,6 +229,7 @@ async function loadAllData() {
     loadProducts(),
     loadOrders(),
     loadSupportMessages(),
+    loadPromoCodes(),
     loadSettings(),
   ]);
 
@@ -162,6 +299,22 @@ async function loadSupportMessages() {
 
   supportMessages = data || [];
   renderSupportMessages();
+}
+
+async function loadPromoCodes() {
+  const { data, error } = await sb
+    .from("promo_codes")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(200);
+
+  if (error) {
+    alert("هەڵە لە هێنانی پرۆمۆ کۆدەکان: " + error.message);
+    return;
+  }
+
+  promoCodes = data || [];
+  renderPromoCodes();
 }
 
 async function loadSettings() {
@@ -332,7 +485,14 @@ function renderOrders() {
         <small>${formatDate(o.created_at)}</small>
       </td>
       <td>${escapeHtml(o.customer_phone || "")}</td>
-      <td>${formatMoney(o.total || o.total_amount || 0)}</td>
+      <td>
+        <b>${formatMoney(o.total || o.total_amount || 0)}</b>
+        ${
+          o.promo_code
+            ? `<small>پرۆمۆ: ${escapeHtml(o.promo_code)} - داشکاندن: ${formatMoney(o.promo_discount || 0)}</small>`
+            : ""
+        }
+      </td>
       <td><span class="badge">${escapeHtml(orderStatusText(o.status))}</span></td>
       <td class="actions">
         <button class="btn mini" onclick="viewOrder('${o.id}')">وردەکاری</button>
@@ -401,6 +561,46 @@ function renderSupportMessages() {
     </div>
   `
     )
+    .join("");
+}
+
+function renderPromoCodes() {
+  const table = document.getElementById("promosTable");
+  if (!table) return;
+
+  if (!promoCodes.length) {
+    table.innerHTML = `<tr><td colspan="7" class="empty">هێشتا پرۆمۆ کۆد نییە</td></tr>`;
+    return;
+  }
+
+  table.innerHTML = promoCodes
+    .map((p) => {
+      const isExpired = p.expires_at && new Date(p.expires_at) < new Date();
+      const uses = `${p.used_count || 0}${p.max_uses ? " / " + p.max_uses : ""}`;
+
+      return `
+        <tr>
+          <td><b>${escapeHtml(p.code || "-")}</b></td>
+          <td>
+            <b>${escapeHtml(p.title || "-")}</b>
+            <small>${escapeHtml(p.description || "")}</small>
+          </td>
+          <td>${escapeHtml(promoTypeText(p.discount_type))}</td>
+          <td>${promoValueText(p)}</td>
+          <td>${escapeHtml(uses)}</td>
+          <td>
+            <span class="badge ${
+              p.is_active && !isExpired ? "done" : "off"
+            }">${p.is_active && !isExpired ? "چالاک" : "ناچالاک"}</span>
+            ${isExpired ? `<span class="badge sale">بەسەرچووە</span>` : ""}
+          </td>
+          <td>
+            <button class="btn mini" onclick="editPromo('${p.id}')">گۆڕین</button>
+            <button class="btn danger mini" onclick="deletePromo('${p.id}')">سڕین</button>
+          </td>
+        </tr>
+      `;
+    })
     .join("");
 }
 
@@ -622,6 +822,117 @@ async function deleteCategory(id) {
   updateStats();
 }
 
+function openPromoModal() {
+  currentPromoId = null;
+  setText("promoModalTitle", "زیادکرنا پرۆمۆ کۆد");
+
+  setValue("promoCode", "");
+  setValue("promoTitle", "");
+  setValue("promoDescription", "");
+  setValue("promoDiscountType", "percent");
+  setValue("promoDiscountValue", "");
+  setValue("promoAppliesTo", "order");
+  setValue("promoMinOrder", "0");
+  setValue("promoMaxUses", "");
+  setValue("promoExpiresAt", "");
+
+  setChecked("promoActive", true);
+
+  document.getElementById("promoModal").classList.remove("hidden");
+}
+
+function closePromoModal() {
+  document.getElementById("promoModal").classList.add("hidden");
+}
+
+function editPromo(id) {
+  const p = promoCodes.find((x) => x.id === id);
+  if (!p) return;
+
+  currentPromoId = id;
+  setText("promoModalTitle", "گۆڕینا پرۆمۆ کۆد");
+
+  setValue("promoCode", p.code || "");
+  setValue("promoTitle", p.title || "");
+  setValue("promoDescription", p.description || "");
+  setValue("promoDiscountType", p.discount_type || "percent");
+  setValue("promoDiscountValue", p.discount_value || 0);
+  setValue("promoAppliesTo", p.applies_to || "order");
+  setValue("promoMinOrder", p.min_order_total || 0);
+  setValue("promoMaxUses", p.max_uses || "");
+  setValue("promoExpiresAt", p.expires_at ? toDatetimeLocal(p.expires_at) : "");
+
+  setChecked("promoActive", p.is_active !== false);
+
+  document.getElementById("promoModal").classList.remove("hidden");
+}
+
+async function savePromo() {
+  const code = getValue("promoCode").toUpperCase().replace(/\s+/g, "");
+  const title = getValue("promoTitle");
+  const discountType = getValue("promoDiscountType");
+
+  if (!code) {
+    alert("کۆدی پرۆمۆ بنویسە.");
+    return;
+  }
+
+  if (!title) {
+    alert("ناونیشانی پرۆمۆ بنویسە.");
+    return;
+  }
+
+  const payload = {
+    code,
+    title,
+    description: getValue("promoDescription"),
+    discount_type: discountType,
+    discount_value:
+      discountType === "free_delivery"
+        ? 0
+        : Number(getValue("promoDiscountValue") || 0),
+    applies_to: getValue("promoAppliesTo"),
+    min_order_total: Number(getValue("promoMinOrder") || 0),
+    max_uses: getValue("promoMaxUses") ? Number(getValue("promoMaxUses")) : null,
+    is_active: getChecked("promoActive"),
+    expires_at: getValue("promoExpiresAt")
+      ? new Date(getValue("promoExpiresAt")).toISOString()
+      : null,
+  };
+
+  let result;
+
+  if (currentPromoId) {
+    result = await sb.from("promo_codes").update(payload).eq("id", currentPromoId);
+  } else {
+    result = await sb.from("promo_codes").insert(payload);
+  }
+
+  if (result.error) {
+    alert("هەڵە: " + result.error.message);
+    return;
+  }
+
+  closePromoModal();
+  await loadPromoCodes();
+  updateStats();
+  toast("پرۆمۆ کۆد پاشەکەوت بوو");
+}
+
+async function deletePromo(id) {
+  if (!confirm("دڵنیایی ئەم پرۆمۆ کۆدە بسڕیتەوە؟")) return;
+
+  const { error } = await sb.from("promo_codes").delete().eq("id", id);
+
+  if (error) {
+    alert("هەڵە: " + error.message);
+    return;
+  }
+
+  await loadPromoCodes();
+  updateStats();
+}
+
 async function updateOrderStatus(id, status) {
   if (!status) return;
 
@@ -651,6 +962,8 @@ async function deleteOrder(id) {
 }
 
 async function viewOrder(id) {
+  const order = orders.find((x) => x.id === id);
+
   const { data, error } = await sb
     .from("order_items")
     .select("*")
@@ -669,7 +982,11 @@ async function viewOrder(id) {
     })
     .join("\n");
 
-  alert(details || "هیچ کەلوپەلەک نییە.");
+  const promoInfo = order?.promo_code
+    ? `\n\nپرۆمۆ کۆد: ${order.promo_code}\nداشکاندن: ${formatMoney(order.promo_discount || 0)}`
+    : "";
+
+  alert((details || "هیچ کەلوپەلەک نییە.") + promoInfo);
 }
 
 async function replySupport(id) {
@@ -749,10 +1066,28 @@ function updateStats() {
   setText("totalProducts", products.length);
   setText("totalCategories", categories.length);
   setText("totalOrders", orders.length);
+  setText("totalPromos", promoCodes.length);
   setText(
     "newSupportCount",
     supportMessages.filter((m) => !m.admin_reply).length
   );
+}
+
+function promoTypeText(type) {
+  const map = {
+    percent: "ڕێژە %",
+    fixed: "بڕی پارە",
+    free_delivery: "گەیاندنی خۆرایی",
+    delivery_fixed: "داشکاندنی گەیاندن",
+  };
+
+  return map[type] || type || "-";
+}
+
+function promoValueText(p) {
+  if (p.discount_type === "free_delivery") return "گەیاندن 0 IQD";
+  if (p.discount_type === "percent") return `${p.discount_value || 0}%`;
+  return formatMoney(p.discount_value || 0);
 }
 
 function isImageUrl(value) {
@@ -809,6 +1144,15 @@ function formatMoney(value) {
 function formatDate(date) {
   if (!date) return "-";
   return new Date(date).toLocaleString("en-US");
+}
+
+function toDatetimeLocal(value) {
+  const date = new Date(value);
+  const pad = (n) => String(n).padStart(2, "0");
+
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+    date.getDate()
+  )}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 function escapeHtml(value) {
