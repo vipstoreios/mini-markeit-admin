@@ -811,8 +811,9 @@ function editProduct(id) {
   currentProductId = id;
   setText("productModalTitle", "گۆڕینا کەلوپەلی");
 
-  setValue("productNameSorani", p.name_ku_sorani);
-  setValue("productNameBadini", p.name_ku_badini);
+  const productBadiniName = p.name_ku_badini || p.name_ku_sorani || "";
+  setValue("productNameSorani", productBadiniName);
+  setValue("productNameBadini", productBadiniName);
   setValue("productNameAr", p.name_ar);
   setValue("productNameEn", p.name_en);
   setValue("productCategory", p.category_id);
@@ -829,17 +830,21 @@ function editProduct(id) {
 }
 
 async function saveProduct() {
-  const name = getValue("productNameSorani");
+  const appBadiniName = getValue("productNameSorani");
+  const fallbackBadiniName = getValue("productNameBadini");
+  const badiniName = appBadiniName || fallbackBadiniName;
   const price = Number(getValue("productPrice") || 0);
 
-  if (!name) {
-    alert("ناڤێ کەلوپەلی بنویسە.");
+  if (!badiniName) {
+    alert("ناڤێ بادینی یێ کەلوپەلی بنویسە.");
     return;
   }
 
   const payload = {
-    name_ku_sorani: name,
-    name_ku_badini: getValue("productNameBadini"),
+    // Important: the iOS app currently may read name_ku_sorani.
+    // We cannot change the app while it is in Apple review, so the dashboard saves Badini into both columns.
+    name_ku_sorani: badiniName,
+    name_ku_badini: badiniName,
     name_ar: getValue("productNameAr"),
     name_en: getValue("productNameEn"),
     category_id: getValue("productCategory") || null,
@@ -914,8 +919,9 @@ function editCategory(id) {
   currentCategoryId = id;
   setText("categoryModalTitle", "گۆڕینا پۆلێ");
 
-  setValue("categoryNameSorani", c.name_ku_sorani);
-  setValue("categoryNameBadini", c.name_ku_badini);
+  const categoryBadiniName = c.name_ku_badini || c.name_ku_sorani || "";
+  setValue("categoryNameSorani", categoryBadiniName);
+  setValue("categoryNameBadini", categoryBadiniName);
   setValue("categoryNameAr", c.name_ar);
   setValue("categoryNameEn", c.name_en);
   setValue("categoryIcon", c.image_url || c.icon || "");
@@ -927,17 +933,21 @@ function editCategory(id) {
 }
 
 async function saveCategory() {
-  const name = getValue("categoryNameSorani");
+  const appBadiniName = getValue("categoryNameSorani");
+  const fallbackBadiniName = getValue("categoryNameBadini");
+  const badiniName = appBadiniName || fallbackBadiniName;
   const image = getValue("categoryIcon");
 
-  if (!name) {
-    alert("ناڤێ پۆلێ بنویسە.");
+  if (!badiniName) {
+    alert("ناڤێ بادینی یێ پۆلێ بنویسە.");
     return;
   }
 
   const payload = {
-    name_ku_sorani: name,
-    name_ku_badini: getValue("categoryNameBadini"),
+    // Important: the iOS app currently may read name_ku_sorani.
+    // We cannot change the app while it is in Apple review, so the dashboard saves Badini into both columns.
+    name_ku_sorani: badiniName,
+    name_ku_badini: badiniName,
     name_ar: getValue("categoryNameAr"),
     name_en: getValue("categoryNameEn"),
     icon: image,
