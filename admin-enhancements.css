@@ -1,0 +1,223 @@
+/* Mini markeit Admin - extra polish and tools */
+:root {
+  --gold: #f6b73c;
+  --blue: #2563eb;
+  --soft-green: #effcf4;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(24, 184, 79, 0.13), transparent 32%),
+    radial-gradient(circle at 86% 14%, rgba(246, 183, 60, 0.13), transparent 28%),
+    radial-gradient(circle at 50% 100%, rgba(11, 122, 50, 0.08), transparent 34%);
+  z-index: -1;
+}
+
+.login-card,
+.topbar,
+.panel,
+.stat,
+.modal-card {
+  backdrop-filter: blur(18px);
+}
+
+.btn,
+.nav,
+.logout,
+.stat,
+.panel,
+.cat-card,
+.support-card,
+.modal-card {
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.btn:hover,
+.nav:hover,
+.logout:hover {
+  transform: translateY(-1px);
+}
+
+.panel:hover,
+.stat:hover,
+.cat-card:hover,
+.support-card:hover {
+  border-color: rgba(11, 122, 50, 0.22);
+  box-shadow: 0 20px 50px rgba(16, 41, 21, 0.11);
+}
+
+.brand {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  padding: 12px;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 9px;
+}
+
+.nav::before {
+  opacity: 0.9;
+  font-size: 16px;
+}
+
+.nav[data-page="dashboard"]::before { content: "📊"; }
+.nav[data-page="products"]::before { content: "🛍️"; }
+.nav[data-page="categories"]::before { content: "🧩"; }
+.nav[data-page="orders"]::before { content: "🧾"; }
+.nav[data-page="support"]::before { content: "💬"; }
+.nav[data-page="users"]::before { content: "👥"; }
+.nav[data-page="promos"]::before { content: "🎁"; }
+.nav[data-page="settings"]::before { content: "⚙️"; }
+
+.enhancement-toolbar {
+  display: grid;
+  grid-template-columns: minmax(190px, 1fr) repeat(3, auto);
+  gap: 10px;
+  align-items: center;
+  margin: 0 0 16px;
+}
+
+.enhancement-toolbar.compact {
+  grid-template-columns: minmax(180px, 1fr) auto auto;
+}
+
+.enhancement-toolbar input,
+.enhancement-toolbar select {
+  min-height: 44px;
+  border-radius: 16px;
+  background: #fbfdfb;
+}
+
+.enhancement-toolbar .btn {
+  min-height: 44px;
+}
+
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.quick-action {
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.78);
+  border-radius: 24px;
+  padding: 16px;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  text-align: right;
+  color: var(--text);
+  font-weight: 900;
+}
+
+.quick-action span {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.quick-action:hover {
+  transform: translateY(-2px);
+  border-color: rgba(11, 122, 50, 0.25);
+}
+
+.insight-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.insight-card {
+  background: linear-gradient(135deg, #ffffff, #f1fbf4);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 16px;
+  box-shadow: var(--shadow);
+}
+
+.insight-card span {
+  color: var(--muted);
+  font-weight: 900;
+  font-size: 12px;
+}
+
+.insight-card b {
+  display: block;
+  margin-top: 8px;
+  color: var(--green);
+  font-size: 24px;
+}
+
+.status-dot {
+  display: inline-flex;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--green2);
+  margin-inline-start: 6px;
+  box-shadow: 0 0 0 5px rgba(24, 184, 79, 0.11);
+}
+
+.topbar .btn.loading,
+.login-card .btn.loading {
+  opacity: 0.75;
+  cursor: wait;
+}
+
+.table-wrap table tr {
+  transition: background 0.15s ease;
+}
+
+.table-wrap table tbody tr:hover {
+  background: #f6fbf7;
+}
+
+.no-match-row td {
+  color: var(--muted);
+  text-align: center;
+  font-weight: 900;
+  padding: 22px;
+}
+
+@media (max-width: 900px) {
+  .sidebar {
+    gap: 8px;
+  }
+
+  .nav,
+  .logout {
+    justify-content: center;
+  }
+
+  .quick-actions,
+  .insight-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .enhancement-toolbar,
+  .enhancement-toolbar.compact,
+  .quick-actions,
+  .insight-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .quick-action,
+  .insight-card {
+    border-radius: 20px;
+  }
+}
