@@ -1,1 +1,37 @@
-test
+Mini markeit Codex tasks
+
+1. iOS app account persistence
+- After sign up, save the Supabase auth session and user profile locally.
+- On app launch, call Supabase auth current session and load profile from user_profiles.
+- Do not ask for name or phone again after the user has already registered.
+
+2. Support chat customer identity
+- Support chat must use the signed-in profile name and phone automatically.
+- Remove manual name and phone fields from support chat for logged-in customers.
+
+3. Support chat persistence
+- Closing or going back from support chat must never create a new empty chat or clear old messages.
+- Chat messages stay in Supabase until removed from the admin dashboard.
+- Use customer user_id or phone as stable conversation key.
+
+4. Profile My Requests
+- Every order created by the user must appear in Profile > My Requests.
+- Read orders by user_id first, then by customer_phone fallback.
+- Subscribe to realtime changes on orders so status updates instantly.
+
+5. Order status values
+new = New
+confirmed = Confirmed
+preparing = Preparing
+ready = Ready
+shipped = Sent
+on_way = On the way
+delivered = Delivered
+cancelled = Cancelled
+
+6. Delivery zones
+- Admin dashboard needs delivery_zones table management.
+- Each zone has name, delivery_fee, sort_order, is_active.
+- iOS checkout should show a dropdown/list instead of free address input.
+- When customer selects a zone, set delivery_fee automatically and add it to total.
+- Save delivery_zone_id, delivery_zone_name, delivery_fee on orders.
