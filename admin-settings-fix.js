@@ -3,7 +3,22 @@ function adminGetValue(id){const el=document.getElementById(id);return el?el.val
 function adminSetChecked(id,value){const el=document.getElementById(id);if(el)el.checked=!!value;}
 function adminGetChecked(id){const el=document.getElementById(id);return el?el.checked:false;}
 
+function adminEnsureBannerField(){
+  if(document.getElementById('settingBannerUrl'))return;
+  const logo=document.getElementById('settingLogoUrl');
+  if(!logo)return;
+  const label=document.createElement('label');
+  label.className='wide';
+  label.innerHTML='Banner image / وێنەی بانەر<input id="settingBannerUrl" placeholder="https://..." />';
+  logo.closest('label').insertAdjacentElement('afterend',label);
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  setTimeout(()=>{adminEnsureBannerField(); if(window.loadSettings) window.loadSettings();},600);
+});
+
 window.loadSettings=async function(){
+  adminEnsureBannerField();
   const {data,error}=await sb.from('app_settings').select('*').order('updated_at',{ascending:false}).limit(1).maybeSingle();
   if(error)return;
   settingsRow=data;
@@ -19,6 +34,7 @@ window.loadSettings=async function(){
   adminSetValue('settingAboutAr',data.about_ar||'');
   adminSetValue('settingAboutEn',data.about_en||'');
   adminSetValue('settingLogoUrl',data.logo_url||data.logo||'');
+  adminSetValue('settingBannerUrl',data.banner_url||data.banner||'');
   adminSetValue('settingInstagram',data.instagram||'');
   adminSetValue('settingFacebook',data.facebook||'');
   adminSetValue('settingTiktok',data.tiktok||'');
@@ -26,6 +42,7 @@ window.loadSettings=async function(){
 };
 
 window.saveSettings=async function(){
+  adminEnsureBannerField();
   const payload={
     app_name:adminGetValue('settingAppName')||'Mini markeit',
     store_name:adminGetValue('settingStoreName')||'مینی مارکێت',
@@ -38,6 +55,7 @@ window.saveSettings=async function(){
     about_ar:adminGetValue('settingAboutAr'),
     about_en:adminGetValue('settingAboutEn'),
     logo_url:adminGetValue('settingLogoUrl'),
+    banner_url:adminGetValue('settingBannerUrl'),
     instagram:adminGetValue('settingInstagram'),
     facebook:adminGetValue('settingFacebook'),
     tiktok:adminGetValue('settingTiktok'),
