@@ -1,8 +1,27 @@
 /* Mini markeit Admin - user profiles loader */
 (function () {
+  let client = null;
+
   document.addEventListener("DOMContentLoaded", () => {
     window.loadUserProfiles = loadUserProfiles;
   });
+
+  async function getClient() {
+    if (client) return client;
+
+    const scriptText = await fetch("./script.js", { cache: "no-store" }).then((r) => r.text());
+    const url = matchConst(scriptText, "SUPABASE_URL");
+    const key = matchConst(scriptText, "SUPABASE_ANON_KEY");
+
+    if (!url || !key) throw new Error("Supabase settings not found in script.js");
+    client = supabase.createClient(url, key);
+    return client;
+  }
+
+  function matchConst(text, name) {
+    const regex = new RegExp(`const\\s+${name}\\s*=\\s*[\"']([^\"']+)[\"']`);
+    return text.match(regex)?.[1] || "";
+  }
 
   async function loadUserProfiles() {
     const table = document.getElementById("usersTable");
@@ -14,12 +33,8 @@
     setNotice(notice, "", true);
 
     try {
-      if (typeof sb === "undefined" || !sb) {
-        table.innerHTML = `<tr><td colspan="8" class="empty">Supabase client ئامادە نییە</td></tr>`;
-        return;
-      }
-
-      const { data, error } = await sb
+      const sbClient = await getClient();
+      const { data, error } = await sbClient
         .from("user_profiles")
         .select("id, phone, name, email, provider, is_online, last_seen, created_at, updated_at")
         .order("created_at", { ascending: false })
